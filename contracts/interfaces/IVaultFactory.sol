@@ -9,4 +9,8 @@ interface IVaultFactory {
     function predictVaultAddress(address underlying, address admin, bytes32 userSalt) external view returns (address predicted);
 
     function triggerEmergency(address vault) external;
+
+    function resolveEmergency(address vault) external;
+
+    function setSupportedUnderlying(address underlying, bool supported) external;
 }

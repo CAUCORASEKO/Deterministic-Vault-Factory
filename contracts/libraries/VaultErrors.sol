@@ -8,4 +8,15 @@ library VaultErrors {
     error AlreadyInitialized();
     error InvalidSalt();
     error NotSolvent();
+    error NonStandardERC20();
+    error UnderlyingNotSupported();
+    error SaltAlreadyUsed();
+    error VaultNotRegistered();
+    error InvalidImplementation();
+
+    // ===== NEW SEMANTIC ERRORS =====
+    error InvalidAmount();
+    error InsufficientBalance();
+    error EmergencyActive();
+    error EmergencyNotActive();
 }

@@ -15,4 +15,6 @@ interface IVault {
     function withdraw(uint256 amount) external;
 
     function emergencyWithdraw() external;
+
+    function resolveEmergency() external;
 }

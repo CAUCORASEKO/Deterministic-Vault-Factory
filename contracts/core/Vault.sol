@@ -5,29 +5,27 @@ import {IVault} from "../interfaces/IVault.sol";
 import {VaultErrors} from "../libraries/VaultErrors.sol";
 import {VaultEvents} from "../libraries/VaultEvents.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract Vault is IVault, ReentrancyGuard {
-    event EmergencyCustodyMigrated(uint256 amount);
+    using SafeERC20 for IERC20;
+
+    event EmergencyResolved(address indexed admin);
 
     // =============================================================
     //                         STORAGE
     // =============================================================
 
-    // Identity
     address public factory;
     address public underlying;
     address public emergencyCustodian;
 
-    // Accounting
     uint256 public totalAssets;
     uint256 public emergencyCustodiedAssets;
     mapping(address => uint256) public balances;
 
-    // Operational
     bool public emergencyMode;
-
-    // Initialization
     bool private _initialized;
 
     // =============================================================
@@ -49,7 +47,7 @@ contract Vault is IVault, ReentrancyGuard {
     }
 
     function _notEmergency() internal view {
-        if (emergencyMode) revert VaultErrors.NotSolvent();
+        if (emergencyMode) revert VaultErrors.EmergencyActive();
     }
 
     // =============================================================
@@ -57,7 +55,6 @@ contract Vault is IVault, ReentrancyGuard {
     // =============================================================
 
     constructor() {
-        // Lock implementation
         _initialized = true;
     }
 
@@ -69,7 +66,6 @@ contract Vault is IVault, ReentrancyGuard {
         address underlying_,
         address custodian_
     ) external override {
-
         if (_initialized) revert VaultErrors.AlreadyInitialized();
         if (underlying_ == address(0) || custodian_ == address(0))
             revert VaultErrors.ZeroAddress();
@@ -80,7 +76,19 @@ contract Vault is IVault, ReentrancyGuard {
 
         _initialized = true;
 
-        emit VaultEvents.VaultInitialized(underlying_, msg.sender);
+        emit VaultEvents.VaultInitialized(underlying_, custodian_);
+    }
+
+    // =============================================================
+    //                         VIEW HELPERS
+    // =============================================================
+
+    function managedAssets() public view returns (uint256) {
+        return IERC20(underlying).balanceOf(address(this)) + emergencyCustodiedAssets;
+    }
+
+    function solvency() public view returns (bool) {
+        return managedAssets() >= totalAssets;
     }
 
     // =============================================================
@@ -93,25 +101,21 @@ contract Vault is IVault, ReentrancyGuard {
         nonReentrant
         notEmergency
     {
-        if (amount == 0) revert VaultErrors.InvalidSalt(); // reuse minimal error set
+        if (amount == 0) revert VaultErrors.InvalidAmount();
 
         IERC20 token = IERC20(underlying);
 
         uint256 balanceBefore = token.balanceOf(address(this));
-
-        bool success = token.transferFrom(msg.sender, address(this), amount);
-        if (!success) revert VaultErrors.NotSolvent();
-
+        token.safeTransferFrom(msg.sender, address(this), amount);
         uint256 balanceAfter = token.balanceOf(address(this));
-        uint256 received = balanceAfter - balanceBefore;
 
-        // Strict ERC20 enforcement
-        if (received != amount) revert VaultErrors.NotSolvent();
+        if (balanceAfter - balanceBefore != amount)
+            revert VaultErrors.NonStandardERC20();
 
-        balances[msg.sender] += received;
-        totalAssets += received;
+        balances[msg.sender] += amount;
+        totalAssets += amount;
 
-        emit VaultEvents.Deposit(msg.sender, received);
+        emit VaultEvents.Deposit(msg.sender, amount);
     }
 
     // =============================================================
@@ -124,26 +128,25 @@ contract Vault is IVault, ReentrancyGuard {
         nonReentrant
         notEmergency
     {
-        if (amount == 0) revert VaultErrors.InvalidSalt();
+        if (amount == 0) revert VaultErrors.InvalidAmount();
 
         uint256 userBalance = balances[msg.sender];
-        if (userBalance < amount) revert VaultErrors.NotSolvent();
+        if (userBalance < amount)
+            revert VaultErrors.InsufficientBalance();
+
+        IERC20 token = IERC20(underlying);
+
+        uint256 balanceBefore = token.balanceOf(address(this));
+        token.safeTransfer(msg.sender, amount);
+        uint256 balanceAfter = token.balanceOf(address(this));
+
+        if (balanceBefore - balanceAfter != amount)
+            revert VaultErrors.NonStandardERC20();
 
         balances[msg.sender] = userBalance - amount;
         totalAssets -= amount;
 
-        bool success = IERC20(underlying).transfer(msg.sender, amount);
-        if (!success) revert VaultErrors.NotSolvent();
-
         emit VaultEvents.Withdraw(msg.sender, amount);
-    }
-
-    function managedAssets() public view returns (uint256) {
-        return IERC20(underlying).balanceOf(address(this)) + emergencyCustodiedAssets;
-    }
-
-    function solvency() public view returns (bool) {
-        return managedAssets() >= totalAssets;
     }
 
     // =============================================================
@@ -156,25 +159,66 @@ contract Vault is IVault, ReentrancyGuard {
         onlyFactory
         nonReentrant
     {
-        if (emergencyMode) revert VaultErrors.NotSolvent();
+        if (emergencyMode)
+            revert VaultErrors.EmergencyActive();
 
         emergencyMode = true;
 
         IERC20 token = IERC20(underlying);
-        uint256 balance = token.balanceOf(address(this));
 
-        if (balance > 0) {
-            emergencyCustodiedAssets += balance;
+        uint256 balanceBefore = token.balanceOf(address(this));
+        uint256 custodianBalanceBefore =
+            token.balanceOf(emergencyCustodian);
 
-            bool success = token.transfer(
-                emergencyCustodian,
-                balance
-            );
-            if (!success) revert VaultErrors.NotSolvent();
+        if (balanceBefore > 0) {
+            token.safeTransfer(emergencyCustodian, balanceBefore);
 
-            emit EmergencyCustodyMigrated(balance);
+            uint256 balanceAfter =
+                token.balanceOf(address(this));
+            uint256 custodianBalanceAfter =
+                token.balanceOf(emergencyCustodian);
+
+            if (balanceBefore - balanceAfter != balanceBefore)
+                revert VaultErrors.NonStandardERC20();
+
+            if (custodianBalanceAfter - custodianBalanceBefore != balanceBefore)
+                revert VaultErrors.NonStandardERC20();
+
+            emergencyCustodiedAssets += balanceBefore;
         }
 
         emit VaultEvents.EmergencyActivated(msg.sender);
     }
+
+    function resolveEmergency()
+    external
+    override
+    onlyFactory
+    nonReentrant
+{
+    if (!emergencyMode)
+        revert VaultErrors.EmergencyNotActive();
+
+    uint256 ec = emergencyCustodiedAssets;
+
+    if (ec > 0) {
+        uint256 currentBalance =
+            IERC20(underlying).balanceOf(address(this));
+
+        // Require that custody has been fully restored on-chain
+        if (currentBalance < ec)
+            revert VaultErrors.NotSolvent();
+
+        // Reconcile emergency accounting
+        emergencyCustodiedAssets = 0;
+    }
+
+    if (!solvency())
+        revert VaultErrors.NotSolvent();
+
+    emergencyMode = false;
+
+    emit EmergencyResolved(msg.sender);
+}
+
 }

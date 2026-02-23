@@ -20,19 +20,37 @@ contract VaultFactory is IVaultFactory {
 
     mapping(bytes32 => address) public vaultBySalt;
     mapping(address => bool) public isVault;
+    mapping(address => bool) public supportedUnderlying;
+
+    // =============================================================
+    //                         EVENTS
+    // =============================================================
+
+    event UnderlyingSupportUpdated(address indexed underlying, bool supported);
+
+    // =============================================================
+    //                         MODIFIERS
+    // =============================================================
+
+    modifier onlyGovernance() {
+        _onlyGovernance();
+        _;
+    }
+
+    function _onlyGovernance() internal view {
+        if (msg.sender != GOVERNANCE) revert VaultErrors.NotAdmin();
+    }
 
     // =============================================================
     //                         CONSTRUCTOR
     // =============================================================
 
-    modifier onlyGovernance() {
-        if (msg.sender != GOVERNANCE) revert VaultErrors.NotAdmin();
-        _;
-    }
-
     constructor(address vaultImplementation_, address governance_) {
         if (vaultImplementation_ == address(0) || governance_ == address(0))
             revert VaultErrors.ZeroAddress();
+
+        if (vaultImplementation_.code.length == 0)
+            revert VaultErrors.InvalidImplementation();
 
         GOVERNANCE = governance_;
         VAULT_IMPLEMENTATION = vaultImplementation_;
@@ -47,9 +65,11 @@ contract VaultFactory is IVaultFactory {
         address custodian,
         bytes32 userSalt
     ) external override returns (address vault) {
-
         if (underlying == address(0) || custodian == address(0))
             revert VaultErrors.ZeroAddress();
+
+        if (!supportedUnderlying[underlying])
+            revert VaultErrors.UnderlyingNotSupported();
 
         bytes32 finalSalt = DeterministicSalt.deriveSalt(
             address(this),
@@ -59,29 +79,26 @@ contract VaultFactory is IVaultFactory {
         );
 
         if (vaultBySalt[finalSalt] != address(0))
-            revert VaultErrors.InvalidSalt();
+            revert VaultErrors.SaltAlreadyUsed();
 
-        // Predict address first
+        address implementation = VAULT_IMPLEMENTATION;
+
         address predicted = Clones.predictDeterministicAddress(
-            VAULT_IMPLEMENTATION,
+            implementation,
             finalSalt,
             address(this)
         );
 
-        // Ensure no contract already exists at predicted address
         if (predicted.code.length != 0)
-            revert VaultErrors.InvalidSalt();
+            revert VaultErrors.SaltAlreadyUsed();
 
-        // Deploy clone deterministically
         vault = Clones.cloneDeterministic(
-            VAULT_IMPLEMENTATION,
+            implementation,
             finalSalt
         );
 
-        // Initialize atomically
         IVault(vault).initialize(underlying, custodian);
 
-        // Registry updates
         vaultBySalt[finalSalt] = vault;
         isVault[vault] = true;
 
@@ -97,7 +114,6 @@ contract VaultFactory is IVaultFactory {
         address custodian,
         bytes32 userSalt
     ) external view override returns (address predicted) {
-
         bytes32 finalSalt = DeterministicSalt.deriveSalt(
             address(this),
             underlying,
@@ -112,8 +128,45 @@ contract VaultFactory is IVaultFactory {
         );
     }
 
-    function triggerEmergency(address vault) external override onlyGovernance {
-        if (!isVault[vault]) revert VaultErrors.InvalidSalt();
+    // =============================================================
+    //                     EMERGENCY CONTROL
+    // =============================================================
+
+    function triggerEmergency(address vault)
+        external
+        override
+        onlyGovernance
+    {
+        if (!isVault[vault])
+            revert VaultErrors.VaultNotRegistered();
+
         IVault(vault).emergencyWithdraw();
+    }
+
+    function resolveEmergency(address vault)
+        external
+        override
+        onlyGovernance
+    {
+        if (!isVault[vault])
+            revert VaultErrors.VaultNotRegistered();
+
+        IVault(vault).resolveEmergency();
+    }
+
+    // =============================================================
+    //                     UNDERLYING CONTROL
+    // =============================================================
+
+    function setSupportedUnderlying(
+        address underlying,
+        bool supported
+    ) external override onlyGovernance {
+        if (underlying == address(0))
+            revert VaultErrors.ZeroAddress();
+
+        supportedUnderlying[underlying] = supported;
+
+        emit UnderlyingSupportUpdated(underlying, supported);
     }
 }

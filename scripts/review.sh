@@ -1,7 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 mkdir -p reports
+rm -f reports/master.md reports/spec.md reports/formal.md reports/risk.md reports/readiness.md
 
 SCOPE="contracts/core/Vault.sol contracts/core/VaultFactory.sol contracts/libraries/DeterministicSalt.sol"
 
@@ -17,6 +18,8 @@ echo "Running SPEC_COMPLIANCE_AGENT..."
 codex exec "Use agents/SPEC_COMPLIANCE_AGENT.md.
 Scope:
 $SCOPE
+Formal specification source:
+docs/spec_v1.md
 Follow strict output format.
 Return only the SPEC COMPLIANCE REPORT." \
 > reports/spec.md
@@ -25,6 +28,8 @@ echo "Running FORMAL_MODEL_AGENT..."
 codex exec "Use agents/FORMAL_MODEL_AGENT.md.
 Scope:
 $SCOPE
+Formal mathematical model source:
+docs/formal_model_v1.md
 Follow strict output format.
 Return only the FORMAL MODEL CONFORMANCE REPORT." \
 > reports/formal.md
@@ -38,7 +43,13 @@ Return only the ECONOMIC RISK CLASSIFICATION REPORT." \
 
 echo "Running DEPLOYMENT_READINESS_AGENT..."
 codex exec "Use agents/DEPLOYMENT_READINESS_AGENT.md.
-Use all previous reports in /reports.
+Use only these source reports:
+- reports/master.md
+- reports/spec.md
+- reports/formal.md
+- reports/risk.md
+Operational release context source:
+docs/deployment_context_v1.md
 Follow strict output format.
 Return only the DEPLOYMENT READINESS DECISION REPORT." \
 > reports/readiness.md

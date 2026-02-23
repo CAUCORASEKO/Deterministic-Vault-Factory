@@ -1,94 +1,94 @@
 ECONOMIC RISK CLASSIFICATION REPORT
 
 Baseline Context:
-- TVL assumption: **$10,000,000** (single-chain, protocol-wide, current-state planning assumption due missing on-chain TVL input).
-- Asset liquidity assumption: Underlying is liquid in normal markets (can unwind 20% TVL/day) and thin in stress (5% TVL/day).
-- Custody model assumption: Hybrid custody (on-chain vault accounting + external custodian emergency destination).
-- Governance response latency: 24-72 hours (multisig/policy execution).
-- Cross-protocol exposure: Low direct today, but medium integration dependency risk from deterministic address tooling.
+- TVL assumption: USD 50,000,000 protocol TVL (single-asset dominant exposure).
+- Asset liquidity assumption: High in normal conditions; stressed exit capacity assumes 20-30% of TVL liquid within 24h without severe slippage.
+- Custody model assumption: Partial external custody during emergency mode (on-chain to emergency custodian transfer path).
+- Governance response latency: 6-24 hours (detection, coordination, and execution).
+- Cross-protocol exposure: Minimal direct composability assumed; no critical external dependency concentration identified.
 
 Overall Economic Risk Posture:
-HIGH-RISK
+ACCEPTABLE
 
 Top Economic Risks (Ranked by EL):
-1. **ER-01** Emergency path non-realizability (EL: **$2,400,000**)
-2. **ER-02** Deterministic salt split-brain (EL: **$1,200,000**)
-3. **ER-03** Missing formal spec / policy ambiguity (EL: **$400,000**)
+1. ER-01: Emergency custody return delay leading to temporary user fund lock.
+2. ER-02: Governance-key misuse/compromise causing disruptive emergency actions.
+3. ER-03: Undocumented behavior surface (“silent features”) creating integration/accounting friction.
 
 Risk Matrix:
 
 [ER-01]
-- Source Finding ID: MASTER Major Finding #1; SPEC [R5]; FORMAL [E9]
-- Technical Root Cause: `Vault.emergencyWithdraw()` is `onlyFactory`, but factory exposes no callable forwarding path.
-- Exploit / Failure Scenario: During custody stress or asset incident, emergency migration cannot be triggered; losses continue and users cannot be protected by designed emergency transition.
-- Capital at Risk (min/base/stress): $0 / $6,000,000 / $10,000,000
+- Source Finding ID: R10, R11, E6
+- Technical Root Cause: Emergency mode depends on off-contract custodian asset return before resolution.
+- Exploit / Failure Scenario: Custodian delay/failure to return assets keeps vault in emergency mode and blocks normal withdrawals.
+- Capital at Risk (min/base/stress): USD 5,000,000 / USD 20,000,000 / USD 50,000,000 (primarily temporary lock, not proven permanent loss path).
 - Likelihood: 2
-- Impact: 5
-- Exposure Multiplier: 1.5
-- Risk Score: 15.0
-- Expected Loss (EL): $2,400,000
-- Economic Severity: SYSTEMIC
-- Time to Materialization: Rapid once external stress event occurs
-- Reversibility: Partial
-- Systemic Amplification: YES
-- Mitigation Priority: P0
-- Responsible Owner: Protocol
+- Impact: 3
+- Exposure Multiplier: 1.25
+- Risk Score: 7.5
+- Expected Loss (EL): USD 8,000,000
+- Economic Severity: MEDIUM
+- Time to Materialization: Rapid (hours to days after emergency trigger).
+- Reversibility (Full / Partial / None): Partial
+- Systemic Amplification (YES / NO): NO
+- Mitigation Priority (P0 / P1 / P2): P1
+- Responsible Owner (Protocol / Governance / Ops): Governance/Ops
 
 [ER-02]
-- Source Finding ID: MASTER Major Finding #2; SPEC [R2]; FORMAL [E8]
-- Technical Root Cause: Inconsistent deterministic salt derivation across `VaultFactory` and `DeterministicSalt` library.
-- Exploit / Failure Scenario: Integrators/tooling derive divergent addresses, causing misrouting, deployment mismatch, failed recovery assumptions, and potential capital stranded in wrong flows.
-- Capital at Risk (min/base/stress): $250,000 / $2,000,000 / $6,000,000
-- Likelihood: 3
+- Source Finding ID: R6, R7, R9
+- Technical Root Cause: Governance-only privileged controls are correct but create concentrated operational/key-management dependency.
+- Exploit / Failure Scenario: Compromised or erroneous governance action triggers emergency flows or disruptive allowlist decisions, causing liquidity run pressure.
+- Capital at Risk (min/base/stress): USD 1,000,000 / USD 10,000,000 / USD 35,000,000 (mix of temporary lock, forced exits, and operational damage).
+- Likelihood: 1
 - Impact: 4
 - Exposure Multiplier: 1.25
-- Risk Score: 15.0
-- Expected Loss (EL): $1,200,000
+- Risk Score: 5.0
+- Expected Loss (EL): USD 2,000,000
 - Economic Severity: HIGH
-- Time to Materialization: Gradual to rapid (integration-triggered)
-- Reversibility: Partial
-- Systemic Amplification: YES
-- Mitigation Priority: P0
-- Responsible Owner: Protocol
+- Time to Materialization: Instant to rapid
+- Reversibility (Full / Partial / None): Partial
+- Systemic Amplification (YES / NO): NO
+- Mitigation Priority (P0 / P1 / P2): P1
+- Responsible Owner (Protocol / Governance / Ops): Governance/Ops
 
 [ER-03]
-- Source Finding ID: SPEC [R1]
-- Technical Root Cause: Missing versioned normative specification (`reports/spec.md` empty).
-- Exploit / Failure Scenario: Governance/integration decisions diverge from intended guarantees, increasing change-risk, delayed incident response, and economic misconfiguration.
-- Capital at Risk (min/base/stress): $0 / $500,000 / $2,000,000
-- Likelihood: 4
-- Impact: 3
+- Source Finding ID: SPEC-DRIFT (Silent features detected: 2)
+- Technical Root Cause: Documented spec/code conformance is full, but undocumented behavior surface remains.
+- Exploit / Failure Scenario: Integrator/off-chain accounting mismatch causes incorrect operational assumptions, delayed responses, or temporary freezes.
+- Capital at Risk (min/base/stress): USD 0 / USD 2,000,000 / USD 8,000,000
+- Likelihood: 2
+- Impact: 2
 - Exposure Multiplier: 1.0
-- Risk Score: 12.0
-- Expected Loss (EL): $400,000
-- Economic Severity: MEDIUM
+- Risk Score: 4.0
+- Expected Loss (EL): USD 800,000
+- Economic Severity: LOW
 - Time to Materialization: Gradual
-- Reversibility: Full
-- Systemic Amplification: NO
-- Mitigation Priority: P1
-- Responsible Owner: Governance
+- Reversibility (Full / Partial / None): Full
+- Systemic Amplification (YES / NO): NO
+- Mitigation Priority (P0 / P1 / P2): P2
+- Responsible Owner (Protocol / Governance / Ops): Protocol/Ops
 
 Portfolio-Level View:
-- Aggregate downside (base case): $8,500,000
-- Aggregate downside (stress case): $10,000,000
-- Aggregate Expected Loss: $4,000,000
-- Insolvency risk: HIGH
-- Liquidity run risk: HIGH
-- Contagion risk: MEDIUM
+- Aggregate downside (base case): USD 32,000,000 (dominantly temporary lock/dislocation, not modeled as immediate permanent loss).
+- Aggregate downside (stress case): USD 50,000,000 (TVL-wide emergency lock scenario).
+- Aggregate Expected Loss: USD 10,800,000
+- Insolvency risk: LOW
+- Liquidity run risk: MEDIUM
+- Contagion risk: LOW
 
 Kill-Switch Threshold Analysis:
-- TVL loss threshold triggering halt: 10% realized loss or credible path to >25% impairment under unresolved ER-01.
-- Liquidity depletion threshold: On-chain liquidity coverage <1.1x 7-day expected withdrawals.
-- Governance intervention threshold: Any confirmed deterministic-address divergence in production integrations, or inability to execute emergency workflow within 2 hours of incident declaration.
+- TVL loss threshold triggering halt: Any credible path to >5% realized permanent loss or >10% unexplained custody delta.
+- Liquidity depletion threshold: On-chain liquid assets <20% of liabilities for >6 hours.
+- Governance intervention threshold: Emergency mode unresolved >24 hours, or governance key incident confirmed/suspected.
 
 Decision Guidance:
-- Deploy now: NO
-- Conditions required before deploy: Implement callable factory emergency-forwarding control; unify and freeze canonical salt derivation; publish versioned spec clauses for emergency authority and deterministic policy.
-- Immediate mitigations (P0): Add and test emergency forwarding path end-to-end; remove/align divergent salt library logic; add invariant/property tests for emergency reachability and salt canonicality.
-- Near-term mitigations (P1): Publish formal spec v1.0 with clause IDs; add integration conformance tests for address prediction; define governance runbook with explicit RTO/RPO.
-- Monitoring requirements post-deploy: Real-time mismatch alerts between predicted and deployed addresses; emergency-call readiness drills; solvency/liquidity dashboards with automated threshold alerts.
+- Deploy now: YES
+- Conditions required before deploy: Governance key hardening (multisig + timelock policy), emergency custodian runbook with return SLAs, explicit documentation of silent features.
+- Immediate mitigations (P0): Real-time monitoring for custody delta anomalies; automated alerting on emergency-mode duration and liquidity coverage.
+- Near-term mitigations (P1): Governance opsec drills, emergency return attestations, withdrawal-cap/rate-limit playbook for run conditions.
+- Monitoring requirements post-deploy: Track managedAssets/totalAssets ratio, emergencyCustodiedAssets aging, governance action latency, and concentration of deposits per vault.
 
 Final Verdict:
-REQUIRES RISK MITIGATION BEFORE DEPLOYMENT
+ECONOMICALLY ACCEPTABLE FOR DEPLOYMENT
 
 End of Report.

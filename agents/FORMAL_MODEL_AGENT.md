@@ -35,6 +35,10 @@ Scope:
 - Closure under composition (repeated execution)
 - Non-interference between independent state variables
 
+Hybrid Custody Solvency Convention:
+- managedAssets := IERC20(underlying).balanceOf(address(this)) + emergencyCustodiedAssets
+- Solvency must be evaluated as: managedAssets >= totalAssets
+
 Hard Rules:
 1. Every conclusion must reference both a formal equation and code evidence.
 2. Every state transition must be expressed in S(t) → S(t+1) form.
