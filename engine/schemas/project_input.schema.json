@@ -1,0 +1,111 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://local/engine/schemas/project_input.schema.json",
+  "title": "Deterministic Decision Engine Project Input",
+  "description": "Canonical, deterministic input contract for local institutional decision analysis.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project_name",
+    "version",
+    "network",
+    "governance",
+    "economic_assumptions",
+    "formal_model_present",
+    "spec_present",
+    "monitoring_defined",
+    "emergency_mechanism_defined",
+    "risk_acceptance_signed"
+  ],
+  "properties": {
+    "project_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable project identifier used in all reports."
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Assessment version label for deterministic traceability (e.g., v1.0.0)."
+    },
+    "network": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Target deployment network identifier (e.g., ethereum-mainnet, base-mainnet)."
+    },
+    "governance": {
+      "type": "object",
+      "description": "Governance control-plane configuration.",
+      "additionalProperties": false,
+      "required": [
+        "multisig_address",
+        "threshold",
+        "timelock_enabled"
+      ],
+      "properties": {
+        "multisig_address": {
+          "type": "string",
+          "pattern": "^0x[a-fA-F0-9]{40}$",
+          "description": "Multisig account controlling privileged protocol actions."
+        },
+        "threshold": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of required approvals for multisig execution."
+        },
+        "timelock_enabled": {
+          "type": "boolean",
+          "description": "Whether timelock protections are enabled for privileged actions."
+        }
+      }
+    },
+    "economic_assumptions": {
+      "type": "object",
+      "description": "Core economic operating assumptions for risk analysis.",
+      "additionalProperties": false,
+      "required": [
+        "tvl_usd",
+        "liquidity_24h_pct",
+        "governance_latency_hours"
+      ],
+      "properties": {
+        "tvl_usd": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Estimated total value locked in USD."
+        },
+        "liquidity_24h_pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percent of TVL expected to remain liquid over 24 hours."
+        },
+        "governance_latency_hours": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Expected elapsed hours from proposal initiation to effective action."
+        }
+      }
+    },
+    "formal_model_present": {
+      "type": "boolean",
+      "description": "True when a formal model exists for protocol critical logic."
+    },
+    "spec_present": {
+      "type": "boolean",
+      "description": "True when a complete specification is available and versioned."
+    },
+    "monitoring_defined": {
+      "type": "boolean",
+      "description": "True when production monitoring and alerting are defined."
+    },
+    "emergency_mechanism_defined": {
+      "type": "boolean",
+      "description": "True when emergency controls and response paths are documented."
+    },
+    "risk_acceptance_signed": {
+      "type": "boolean",
+      "description": "True when formal risk acceptance has been approved by accountable stakeholders."
+    }
+  }
+}
