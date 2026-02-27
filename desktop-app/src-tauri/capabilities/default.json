@@ -1,0 +1,38 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default desktop capability",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "dialog:allow-open",
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [
+        {
+          "path": "/Users/cauco/Desktop/Deterministic-Vault-Factory/**"
+        },
+        {
+          "path": "/Users/cauco/Desktop/Deterministic-Vault-Factory/engine/output/**"
+        },
+        {
+          "path": "/Users/cauco/Desktop/Deterministic-Vault-Factory/vault/**"
+        }
+      ]
+    },
+    {
+      "identifier": "opener:allow-reveal-item-in-dir",
+      "allow": [
+        {
+          "path": "/Users/cauco/Desktop/Deterministic-Vault-Factory/**"
+        },
+        {
+          "path": "/Users/cauco/Desktop/Deterministic-Vault-Factory/engine/output/**"
+        },
+        {
+          "path": "/Users/cauco/Desktop/Deterministic-Vault-Factory/vault/**"
+        }
+      ]
+    }
+  ]
+}

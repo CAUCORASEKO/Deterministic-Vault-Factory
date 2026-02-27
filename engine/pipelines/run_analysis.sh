@@ -360,7 +360,22 @@ main() {
   printf 'Report hash (canonical): %s\n' "$report_sha256"
   printf 'Decision hash: %s\n' "$decision_sha"
   printf 'Timestamp (UTC): %s\n' "$analysis_timestamp_utc"
+
+  # ---- Deterministic Evidence Vault Archive ----
+  [[ -s "$FINAL_REPORT" ]] || fail "Cannot archive evidence: required artifact missing"
+  [[ -s "$decision_json" ]] || fail "Cannot archive evidence: required artifact missing"
+  [[ -s "$decision_sha_file" ]] || fail "Cannot archive evidence: required artifact missing"
+
+  local vault_dir
+  vault_dir="vault/${input_sha256}"
+  mkdir -p "$vault_dir"
+
+  cp "$CANONICAL_INPUT" "$vault_dir/"
+  cp "$FINAL_REPORT" "$vault_dir/"
+  cp "$decision_json" "$vault_dir/"
+  cp "$decision_sha_file" "$vault_dir/"
+
+  log "Evidence archived to vault/${input_sha256}"
 }
 
 main "$@"
-
